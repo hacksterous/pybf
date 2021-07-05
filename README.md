@@ -1,6 +1,11 @@
-## pybf
+# pybf
+
 ## Python LibBF Extension
 _PYBF_ is a Python extension to Fabrice Bellard's LibBF library (https://bellard.org/libbf/).
+
+## Legal
+Please note that apbf.py and pybf.c are licensed under GNU GPL version 3.0. LibBF is licensed
+under the MIT license.
 
 ## How to Use
 The Python arbritrary precision library _MPAP_ (https://github.com/hacksterous/mpap) -- extended
