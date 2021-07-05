@@ -69,7 +69,7 @@ static PyObject* bf_op (PyObject* self, PyObject *args) {
 	if (!PyArg_ParseTuple(args, "Liss", &prec10, &op, &a, &b)) {
 		return NULL;
 	}
-	prec = (limb_t) BITS_PER_DIGIT * (prec10 + 14); //additional 14 digits
+	prec = (limb_t) BITS_PER_DIGIT * (prec10 + 14) * (1.3);
 	//printf ("Got %s and %s from Python\n", a, b);
 	//printf ("bf_op: bf_A pointer is %d\n", (int64_t)(&bf_A));
 	bf_atof(&bf_A, a, NULL, 10, prec, BF_RNDZ);
