@@ -1,6 +1,6 @@
 # pybf
 
-## Python LibBF Extension
+## Python LibBF Extension (arbitrary precision floating point numbers in a tiny shared library)
 _PYBF_ is a Python extension to Fabrice Bellard's LibBF library (https://bellard.org/libbf/).
 
 ## Legal
@@ -13,9 +13,11 @@ for complex numbers -- uses a Pure Python backend for arithmetic operations and 
 
 apbf.py is a modification to _MPAP_ to use the _pybf_ backend.
 
-To generate the pybf shared library, from a shell:
+To generate the pybf shared library, from a GNU/Linux or Unix/like shell:
 
 `# make`
+
+I don't have access to a Windows environment, but this should work in a MinGW32/64 setup in Windows.
 
 From the Python3 shell:
 
