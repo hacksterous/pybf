@@ -23,7 +23,8 @@ mpap(Mantissa = 628318530717958647692528676, Exponent = 0, IM = 0, IE = 0, Inter
 This gives the value 2*π.
 
 To get the current precision in digits and set precision to 1000:
-```>>> gprec()
+```
+>>> gprec()
 27
 >>> sprec(1000)
 sprec: set APBF_PRECISION to  1000
