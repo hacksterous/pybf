@@ -39,6 +39,8 @@ PYBF_OP_ATAN2 = 22
 PYBF_OP_ASIN = 23
 PYBF_OP_ACOS = 24
 PYBF_OP_POW = 25
+PYBF_CONST_PI_ALT = 26
+PYBF_CONST_PI_ALT2 = 27
 
 def degrees(val):
 	global MPAP_DEGREES_MODE
@@ -852,7 +854,6 @@ class mpap ():
 					InternalAware = True)
 
 	def log (self):
-		print ("mpcap.log: self =", self)
 		if  self.IM != 0 or self.re () < 0:
 			return self.clog()
 		else:
@@ -860,6 +861,16 @@ class mpap ():
 
 	def pi(self):
 		return self.bfwrapper(PYBF_CONST_PI)
+
+	#just for testing
+	def pialt(self):
+		return self.bfwrapper(PYBF_CONST_PI_ALT)
+
+	def pialt2(self):
+		return self.bfwrapper(PYBF_CONST_PI_ALT2)
+
+	def pialtdefault(self):
+		return self.bfwrapper(PYBF_CONST_PI_ALT2+100)
 
 	def pi_DONTUSE(self):
 		# Pi using Chudnovsky's algorithm
@@ -899,7 +910,7 @@ class mpap ():
 
 	def sqrt (self):
 		if  self.IM != 0:
-			return (self.log()/2).exp()
+			return (self.clog()/2).cexp()
 
 		if self.re () < 0:
 			r = (-self.re()).sqrt()
@@ -1024,6 +1035,9 @@ class mpap ():
 
 		if self == 0:
 			return mpap(0)
+
+		if self == mpap(0.5).pi():
+			return mpap(1)
 
 		if MPAP_DEGREES_MODE == True:
 			x = self * mpap(1).pi() / mpap(180)

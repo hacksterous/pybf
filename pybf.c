@@ -31,12 +31,13 @@ typedef enum {
 	PYBF_OP_ATAN2,
 	PYBF_OP_ASIN,
 	PYBF_OP_ACOS,
-	PYBF_OP_POW
+	PYBF_OP_POW,
+	PYBF_CONST_PI_ALT,
+	PYBF_CONST_PI_ALT2
 } opEnum_t;
 
 /* number of bits per base 10 digit */
-#define BITS_PER_DIGIT 3.32192809488736234787
-
+#define BITS_PER_DIGIT 3.32192809488736234786
 static bf_context_t bf_ctx;
 static bf_t bf_A;
 static bf_t bf_B;
@@ -65,45 +66,54 @@ static PyObject* bf_op (PyObject* self, PyObject *args) {
     int64_t prec10;
 	int status;
 	limb_t prec;
+	size_t digits_len;
 
 	if (!PyArg_ParseTuple(args, "Liss", &prec10, &op, &a, &b)) {
 		return NULL;
 	}
-	prec = (limb_t) BITS_PER_DIGIT * (prec10 + 14); //additional 14 digits
-	//printf ("Got %s and %s from Python\n", a, b);
-	//printf ("bf_op: bf_A pointer is %d\n", (int64_t)(&bf_A));
+	prec = (limb_t) ceil(BITS_PER_DIGIT * prec10) + 32;
+	printf ("bf_op: prec10 pointer is %ld\n", (int64_t)(prec10));
 	bf_atof(&bf_A, a, NULL, 10, prec, BF_RNDZ);
 	bf_atof(&bf_B, b, NULL, 10, prec, BF_RNDZ);
 	switch (op) {
-		case PYBF_OP_MUL: bf_mul(&bf_X, &bf_A, &bf_B, prec, BF_RNDZ); break;
-		case PYBF_OP_ADD: bf_add(&bf_X, &bf_A, &bf_B, prec, BF_RNDZ); break;
-		case PYBF_OP_SUB: bf_sub(&bf_X, &bf_A, &bf_B, prec, BF_RNDZ); break;
-		case PYBF_OP_RINT: bf_set (&bf_X, &bf_A); bf_rint(&bf_X, BF_RNDZ); break;
-		case PYBF_OP_ROUND: bf_set (&bf_X, &bf_A); bf_round(&bf_X, prec, BF_RNDZ); break;
+		case PYBF_OP_MUL: bf_mul(&bf_X, &bf_A, &bf_B, prec, BF_RNDN); break;
+		case PYBF_OP_ADD: bf_add(&bf_X, &bf_A, &bf_B, prec, BF_RNDN); break;
+		case PYBF_OP_SUB: bf_sub(&bf_X, &bf_A, &bf_B, prec, BF_RNDN); break;
+		case PYBF_OP_RINT: bf_set (&bf_X, &bf_A); bf_rint(&bf_X, BF_RNDN); break;
+		case PYBF_OP_ROUND: bf_set (&bf_X, &bf_A); bf_round(&bf_X, prec, BF_RNDN); break;
 		case PYBF_OP_CMP_EQ: status = bf_cmp_eq(&bf_A, &bf_B); break;
 		case PYBF_OP_CMP_LT: status = bf_cmp_lt(&bf_A, &bf_B); break;
 		case PYBF_OP_CMP_LE: status = bf_cmp_le(&bf_A, &bf_B); break;
-		case PYBF_OP_DIV: bf_div(&bf_X, &bf_A, &bf_B, prec, BF_RNDZ); break;
-		case PYBF_OP_FMOD: bf_rem(&bf_X, &bf_A, &bf_B, prec, BF_RNDZ, BF_RNDZ); break;
-		case PYBF_OP_REM: bf_rem(&bf_X, &bf_A, &bf_B, prec, BF_RNDZ, BF_RNDZ); break;
-		case PYBF_OP_SQRT: bf_sqrt(&bf_X, &bf_A, prec, BF_RNDZ); break;
+		case PYBF_OP_DIV: bf_div(&bf_X, &bf_A, &bf_B, prec, BF_RNDF); break;
+		case PYBF_OP_FMOD: bf_rem(&bf_X, &bf_A, &bf_B, prec, BF_RNDN, BF_RNDN); break;
+		case PYBF_OP_REM: bf_rem(&bf_X, &bf_A, &bf_B, prec, BF_RNDN, BF_RNDN); break;
+		case PYBF_OP_SQRT: bf_sqrt(&bf_X, &bf_A, prec, BF_RNDF); break;
 		case PYBF_OP_OR: bf_logic_or(&bf_X, &bf_A,  &bf_B); break;
 		case PYBF_OP_XOR: bf_logic_xor(&bf_X, &bf_A, &bf_B); break;
 		case PYBF_OP_AND: bf_logic_and(&bf_X, &bf_A, &bf_B); break;
-		case PYBF_OP_EXP: bf_exp(&bf_X, &bf_A, prec, BF_RNDZ); break;
-		case PYBF_OP_LOG: bf_log(&bf_X, &bf_A, prec, BF_RNDZ); break;
-		case PYBF_OP_COS: bf_cos(&bf_X, &bf_A, prec, BF_RNDZ); break;
-		case PYBF_OP_SIN: bf_sin(&bf_X, &bf_A, prec, BF_RNDZ); break;
-		case PYBF_OP_TAN: bf_tan(&bf_X, &bf_A, prec, BF_RNDZ); break;
-		case PYBF_OP_ATAN: bf_atan(&bf_X, &bf_A, prec, BF_RNDZ); break;
-		case PYBF_OP_ATAN2: bf_atan2(&bf_X, &bf_A, &bf_B, prec, BF_RNDZ); break;
-		case PYBF_OP_ACOS: bf_acos(&bf_X, &bf_A, prec, BF_RNDZ); break;
-		case PYBF_OP_ASIN: bf_asin(&bf_X, &bf_A, prec, BF_RNDZ); break;
-		case PYBF_OP_POW: bf_pow(&bf_X, &bf_A, &bf_B, prec, BF_RNDZ); break;
-		case PYBF_CONST_PI: bf_const_pi(&bf_B, prec, BF_RNDZ);
-			bf_mul(&bf_X, &bf_A, &bf_B, prec, BF_RNDZ);
+		case PYBF_OP_EXP: bf_exp(&bf_X, &bf_A, prec, BF_RNDN); break;
+		case PYBF_OP_LOG: bf_log(&bf_X, &bf_A, prec, BF_RNDN); break;
+		case PYBF_OP_COS: bf_cos(&bf_X, &bf_A, prec, BF_RNDN); break;
+		case PYBF_OP_SIN: bf_sin(&bf_X, &bf_A, prec, BF_RNDN); break;
+		case PYBF_OP_TAN: bf_tan(&bf_X, &bf_A, prec, BF_RNDN); break;
+		case PYBF_OP_ATAN: bf_atan(&bf_X, &bf_A, prec, BF_RNDN); break;
+		case PYBF_OP_ATAN2: bf_atan2(&bf_X, &bf_A, &bf_B, prec, BF_RNDN); break;
+		case PYBF_OP_ACOS: bf_acos(&bf_X, &bf_A, prec, BF_RNDN); break;
+		case PYBF_OP_ASIN: bf_asin(&bf_X, &bf_A, prec, BF_RNDN); break;
+		case PYBF_OP_POW: bf_pow(&bf_X, &bf_A, &bf_B, prec, BF_RNDN); break;
+		case PYBF_CONST_PI: bf_const_pi(&bf_B, prec, BF_RNDN);
+			printf("bf_op: PYBF_CONST_PI: bf_const_pi\n");
+			bf_mul(&bf_X, &bf_A, &bf_B, prec, BF_RNDN);
 			break;
-		default: bf_const_pi(&bf_X, prec, BF_RNDZ); break;
+		case PYBF_CONST_PI_ALT: pi_chud(&bf_X, prec); 
+			printf("bf_op: PYBF_CONST_PI_ALT: pi_chud\n");
+			break;
+		case PYBF_CONST_PI_ALT2: bf_const_pialt(&bf_X, prec); 
+			printf("bf_op: PYBF_CONST_PI_ALT2: bf_const_pi_internal\n");
+			break;
+		default: bf_const_pi(&bf_X, prec, BF_RNDN); 
+			printf("bf_op: default: bf_const_pi\n");
+			break;
 	}
 
 	if ((op == PYBF_OP_CMP_EQ) || (op == PYBF_OP_CMP_EQ) || (op == PYBF_OP_CMP_EQ)) {
@@ -114,7 +124,8 @@ static PyObject* bf_op (PyObject* self, PyObject *args) {
 	}	
 	//printf ("bf_op: prec is %d\n", prec);
 	//printf ("bf_op: prec10 is %ld\n", (limb_t)prec10);
-	r_str = bf_ftoa(NULL, &bf_X, 10, (limb_t)prec10, BF_RNDZ);
+	r_str = bf_ftoa(&digits_len, &bf_X, 10, prec10 + 1, BF_FTOA_FORMAT_FIXED | BF_RNDZ);
+	printf ("bf_op: digits_len is %ld\n", (int64_t)digits_len);
 
 	return Py_BuildValue("s", r_str);
 }

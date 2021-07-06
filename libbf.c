@@ -4000,7 +4000,7 @@ static void bf_const_log2_internal(bf_t *T, limb_t prec)
 #define CHUD_A 13591409
 #define CHUD_B 545140134
 #define CHUD_C 640320
-#define CHUD_BITS_PER_TERM 47
+#define CHUD_BITS_PER_TERM 47.11041313821584202247
 
 static void chud_bs(bf_t *P, bf_t *Q, bf_t *G, int64_t a, int64_t b, int need_g,
                     limb_t prec)
@@ -4058,6 +4058,35 @@ static void chud_bs(bf_t *P, bf_t *Q, bf_t *G, int64_t a, int64_t b, int need_g,
     }
 }
 
+void pi_chud(bf_t *Q, int64_t prec)
+{
+    bf_context_t *bf_ctx = Q->ctx;
+    int64_t n, prec1;
+    bf_t P, G;
+
+    /* number of serie terms */
+    n = (int64_t)ceil(prec / CHUD_BITS_PER_TERM) + 10;
+    prec1 = prec + 32;
+
+    bf_init(bf_ctx, &P);
+    bf_init(bf_ctx, &G);
+
+    chud_bs(&P, Q, &G, 0, n, 0, prec1);
+    
+    bf_mul_ui(&G, Q, CHUD_A, prec1, BF_RNDN);
+    bf_add(&P, &G, &P, prec1, BF_RNDN);
+    bf_div(Q, Q, &P, prec1, BF_RNDF);
+ 
+    bf_set_ui(&P, CHUD_C);
+    bf_sqrt(&G, &P, prec1, BF_RNDF);
+    bf_mul_ui(&G, &G, (uint64_t)CHUD_C / 12, prec1, BF_RNDF);
+
+    bf_mul(Q, Q, &G, prec, BF_RNDN);
+    
+    bf_delete(&P);
+    bf_delete(&G);
+}
+
 /* compute Pi with faithful rounding at precision 'prec' using the
    Chudnovsky formula */
 static void bf_const_pi_internal(bf_t *Q, limb_t prec)
@@ -4074,7 +4103,8 @@ static void bf_const_pi_internal(bf_t *Q, limb_t prec)
     bf_init(s, &P);
     bf_init(s, &G);
 
-    chud_bs(&P, Q, &G, 0, n, 0, BF_PREC_INF);
+    //chud_bs(&P, Q, &G, 0, n, 0, BF_PREC_INF);
+    chud_bs(&P, Q, &G, 0, n, 0, prec1);
     
     bf_mul_ui(&G, Q, CHUD_A, prec1, BF_RNDN);
     bf_add(&P, &G, &P, prec1, BF_RNDN);
@@ -4083,9 +4113,15 @@ static void bf_const_pi_internal(bf_t *Q, limb_t prec)
     bf_set_ui(&P, CHUD_C);
     bf_sqrt(&G, &P, prec1, BF_RNDF);
     bf_mul_ui(&G, &G, (uint64_t)CHUD_C / 12, prec1, BF_RNDF);
+
     bf_mul(Q, Q, &G, prec, BF_RNDN);
+
     bf_delete(&P);
     bf_delete(&G);
+}
+
+void bf_const_pialt (bf_t *Q, limb_t prec) {
+	bf_const_pi_internal(Q, prec);
 }
 
 static int bf_const_get(bf_t *T, limb_t prec, bf_flags_t flags,

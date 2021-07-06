@@ -399,6 +399,8 @@ limb_t bf_isqrt(limb_t a);
 /* transcendental functions */
 int bf_const_log2(bf_t *T, limb_t prec, bf_flags_t flags);
 int bf_const_pi(bf_t *T, limb_t prec, bf_flags_t flags);
+void pi_chud(bf_t *r, int64_t prec);
+void bf_const_pialt(bf_t *r, limb_t prec);
 int bf_exp(bf_t *r, const bf_t *a, limb_t prec, bf_flags_t flags);
 int bf_log(bf_t *r, const bf_t *a, limb_t prec, bf_flags_t flags);
 #define BF_POW_JS_QUIRKS (1 << 16) /* (+/-1)^(+/-Inf) = NaN, 1^NaN = NaN */

@@ -61,12 +61,11 @@ endif
 LIBS=-lm
 
 PYINC=-I/usr/include/python3.9 
-PYLIB=-lpython3.9
 
 all: pybf.so
 
 pybf.so: cutils.o libbf.o pybf.o
-	$(CC) -shared $(LDFLAGS) $(PYINC) -o $@ $^ $(LIBS) $(PYLIB)
+	$(CC) -shared $(LDFLAGS) $(PYINC) -o $@ $^ $(LIBS) 
 
 %.o: %.c
 	$(CC) $(CFLAGS) $(PYINC) -c -o $@ $<
