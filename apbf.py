@@ -1,17 +1,19 @@
 #########################################################
-# mpcap
+# apbf
 # Minimalistic Python port of Complex ArbitraryPrecision
 # Targeted for MicroPython on microcontrollers
 # with a few tweaks 
 # (c) 2020 Anirban Banerjee <anirbax@gmail.com>
 #########################################################
-global MPAP_DEGREES_MODE
-global MPAPERRORFLAG
-global APBF_PRECISION #31 bit APBF_PRECISION gives 23 accurate significant digits
+
+#global MPAP_DEGREES_MODE
+#global MPAPERRORFLAG
+#global APBF_PRECISION #31 bit APBF_PRECISION gives 23 accurate significant digits
 
 MPAP_DEGREES_MODE = False
 MPAPERRORFLAG = ''
 APBF_PRECISION = 27
+APBF_LAST_OP_DIGITS_LEN = 27
 
 PYBF_CONST_PI = 0
 PYBF_OP_MUL = 1
@@ -53,7 +55,7 @@ def rprec():
 def sprec(prec):
 	global APBF_PRECISION
 	APBF_PRECISION = prec
-	print ("sprec: set APBF_PRECISION to ", APBF_PRECISION)
+	#print ("sprec: set APBF_PRECISION to ", APBF_PRECISION)
 
 def gprec():
 	return APBF_PRECISION
@@ -113,7 +115,7 @@ class mpap ():
 
 		if (type(Mantissa) == float or type(Mantissa) == str):
 			# String rep of mantissa, useful for reuse (strings are immutable), also UnSigned variant
-			strMan = str(Mantissa)
+			strMan = str(Mantissa).lstrip('0')
 			strManUS = strMan.replace('-', '')
 			# Extract all significant digits
 			if('e' in strMan): # Oops, too small; have to expand notation
@@ -138,9 +140,16 @@ class mpap ():
 					raise ValueError
 
 			# Count exponent for scientific notation
-			isFraction = (strManUS.find('.') > -1 and int(strManUS[:strManUS.find('.')]) == 0)
+			
+			isFraction = False
+			if strManUS.find('.') ==  0:
+				Exponent -= 1
+				isFraction = True
+				
 			#if (abs(float(Mantissa)) < 1) or isFraction == True:
-			#print ("mpcap:processArguments - isFraction == ", isFraction)
+			#print ("apbf:processArguments - isFraction == ", isFraction)
+			lenStrManUS = len(strManUS)
+			#print ("apbf:processArguments - strManUS == ", strManUS)
 			if isFraction == True:
 				# numbers that cause single/double-precision float() to overflow
 				# will fail this if-clause
@@ -151,21 +160,22 @@ class mpap ():
 					Exponent = 0
 				else:
 					#number is a fraction
-					for i in range(len(strManUS)):
+					#print ("apbf:processArguments - isFraction == ", isFraction)
+					#print ("apbf:processArguments - Exponent == ", Exponent)
+					for i in range(lenStrManUS):
 						if(strManUS[i] == '.'):
 							continue
 						if(strManUS[i] != '0'):
 							break
-						Exponent = Exponent - 1
+						Exponent -= 1
 			else:
-				Exponent = Exponent - 1 # 1.42857 is 1.425847e0
-				for i in range(len(strManUS)):
+				Exponent -= 1 # 1.42857 is 1.425847e0
+				for i in range(lenStrManUS):
 					if(strManUS[i] == 'e' or  strManUS[i] == '.'):
 						break
 					Exponent = Exponent + 1
 
 			selfExponent = Exponent
-
 		else:
 			#handle integer parameters only
 			if(Mantissa == 0):
@@ -176,8 +186,7 @@ class mpap ():
 				if InternalAware == True:
 					selfExponent = Exponent
 				else:
-					selfExponent = Exponent + len(str(Mantissa).replace('-', '')) - 1
-			
+					selfExponent = Exponent + len(str(selfMantissa).replace('-', '')) - 1
 		#endif
 
 		#M=10, E=1 and M=1, E=1 both indicate the same number,
@@ -185,29 +194,41 @@ class mpap ():
 		#in numeric comparisons, so reduce to the form M=1, E=1
 		MantissaStr = str(selfMantissa)
 		#if selfMantissa > 1000:
-			#print ("mpcap: processArguments - MantissaStr is > 1000 and = ", MantissaStr)
+			#print ("apbf: processArguments - MantissaStr is > 1000 and = ", MantissaStr)
 		i = 0
 		while MantissaStr[-1:] == '0' and \
 				selfMantissa != 0:
+			#remove 0s from end of number
 			MantissaStr = MantissaStr[:-1]
 			i += 1
 		selfMantissa = int (MantissaStr)
+		lenStrMantissa = len(str(selfMantissa).replace('-', ''))
 
-		#print ("--------------- mpcap: processArguments - now returning")
-		return selfMantissa, selfExponent
+		#print ("--------------- apbf: processArguments - now returning")
+		return selfMantissa, selfExponent, lenStrMantissa
 
 	def __init__(self, Mantissa, Exponent = 0,\
 		IM = 0,\
 		IE = 0, InternalAware = False
 		):
 
-		global APBF_PRECISION
-		self.Precision = APBF_PRECISION
-		if(isinstance(Mantissa, mpap)):
+		if type(Mantissa) == int and type(Exponent) == int:
+			#quick integer types cast to mpap
+			self.Mantissa = Mantissa
+			self.Exponent = Exponent
+			self.lenStrMantissa = len(str(self.Mantissa))
+			self.IM = int(IM)
+			self.IE = int(IE)
+			self.Sign = -1 if self.Mantissa < 0 else 1
+			return
+
+		if (isinstance(Mantissa, mpap)):
 			self.Mantissa = Mantissa.Mantissa
 			self.Exponent = Mantissa.Exponent
+			self.lenStrMantissa = len(str(self.Mantissa))
 			self.IM = Mantissa.IM
 			self.IE = Mantissa.IE
+			self.Sign = -1 if self.Mantissa < 0 else 1
 			return
 
 		if Mantissa == 'inf' or Mantissa == '-inf' or Mantissa == 'nan' or Mantissa == 'err':
@@ -220,16 +241,19 @@ class mpap ():
 			self.IE = IE
 			return
 
-		self.Mantissa, self.Exponent = self.processArguments (Mantissa, Exponent, InternalAware)
-		self.IM, self.IE = self.processArguments (IM, IE, InternalAware)
-
+		self.Mantissa, self.Exponent, self.lenStrMantissa = self.processArguments (Mantissa, Exponent, InternalAware)
+		self.IM, self.IE, self.lenStrIM = self.processArguments (IM, IE, InternalAware)
+		self.Sign = -1 if self.Mantissa < 0 else 1
 		return
 	#enddef init
 
 	def bfwrapper (self, op, other=0):
-		#print ("bfwrapper: calling bf_op with precision = ", APBF_PRECISION)
+		global APBF_LAST_OP_DIGITS_LEN
+		print ("bfwrapper: calling bf_op with op = ", op, " self.scistr() = ", self.scistr(), " other = ", other)
 		s = pybf.bf_op(APBF_PRECISION, op, self.scistr(), mpap(other).scistr())
-		s = s.split('s')[0]
+		s = s.split('e')[0]
+		APBF_LAST_OP_DIGITS_LEN = pybf.bf_len()
+		#print ("BF OP returned ", pybf.bf_len(), " significant digits.")
 		return mpap(s)
 
 	def __truediv__ (self, other):
@@ -247,10 +271,6 @@ class mpap ():
 			MPAPERRORFLAG = "Division by zero."
 			return mpap(0)
 
-		PREC = max(self.Precision, other.Precision)
-		PREC = max(self.Exponent, PREC)
-		#print ("truediv: start: PREC = ", PREC)
-
 		#subtract divisor's exponent from dividend's exponent after adjusting
 		#for the InternalAware representaiton
 		re = self.Exponent - (len(str(self.Mantissa).replace('-', '')) - 1)
@@ -267,7 +287,8 @@ class mpap ():
 
 	def isInt(self):
 		# 123456 --> (123456, 5)
-		return len(str(self.Mantissa).replace('-', '')) <= self.Exponent + 1
+		#return len(str(self.Mantissa).replace('-', '')) <= self.Exponent + 1
+		return self.lenStrMantissa <= self.Exponent + 1
 
 	def isIntIm(self):
 		#imaginary part is integer
@@ -280,14 +301,14 @@ class mpap ():
 		return self.Mantissa == None or self.Exponent == None
 
 	def int(self, preserveType = True):
-		#print ("mpcap:int: Received ", self.__repr__())
+		#print ("apbf:int: Received ", self.__repr__())
 		s = str(self.Mantissa)
 		if s[0] == '-':
 			mNeg = '-'
 			s = s[1:]
 		else:
 			mNeg = ''
-		#print ("mpcap:int: mantissa is ", str(self.Mantissa))
+		#print ("apbf:int: mantissa is ", str(self.Mantissa))
 		if self.Exponent < 0:
 			s = '0'
 		else:
@@ -306,7 +327,7 @@ class mpap ():
 			return int(mNeg+s)
 
 	def __int__ (self):
-		#print ("mpcap:__int__: Received ", self.__repr__())
+		#print ("apbf:__int__: Received ", self.__repr__())
 		return self.int(preserveType = False)
 
 	def __float__ (self):
@@ -329,7 +350,7 @@ class mpap ():
 		r = (mpap (Mantissa = self.Mantissa, Exponent = self.Exponent, InternalAware = True)).flexstr(sci)
 		j = (mpap (Mantissa = self.IM, Exponent = self.IE, InternalAware = True)).flexstr(sci)
 
-		if self.Mantissa == 0 or self.Exponent < -self.Precision:
+		if self.Mantissa == 0 or self.Exponent < -APBF_PRECISION:
 			r = ''
 			if self.IM < 0:
 				j = '-[' + j[1:] + ']'
@@ -350,40 +371,41 @@ class mpap ():
 		#(those with abs smaller than 1)
 		if self.IM != 0:
 			return self.cstr(sci)
-		#print ("mpcap:__str__: Received ", self.__repr__())
-
+		strAbsSelfMantissa = str(abs(self.Mantissa))
+		strSelfMantissa = str(self.Mantissa).replace('-', '')
+		#lsm = len(strAbsSelfMantissa)
+		#print ("apbf:__str__: Received ", self.__repr__())
 		if self.isInt():
 			return str(int(self))
-		elif len(str(self.Mantissa)) - 1 > self.Exponent and self.Exponent >= 0:
+		#elif lsm - 1 > self.Exponent and self.Exponent >= 0:
+		elif self.lenStrMantissa - 1 > self.Exponent and self.Exponent >= 0:
 			#do not return as 1.23e45
-			strAbsSelfMantissa = str(abs(self.Mantissa))
 			decPoint = self.Exponent + 1
-			return ('-' if self.Mantissa < 0 else '') + strAbsSelfMantissa[:decPoint] + '.' + strAbsSelfMantissa[decPoint:]
+			return ('-' if self.Mantissa < 0 else '') + strSelfMantissa[:decPoint] + '.' + strSelfMantissa[decPoint:]
 		else:
-			strAbsSelfMantissa = str(abs(self.Mantissa))
 			if sci == True:
-				frac = strAbsSelfMantissa[1:]
+				frac = strSelfMantissa[1:]
 				# mpap(1, -3) is 1.0e-3 and not 1.e-3
 				if frac == '':
 					frac = '0'
-				strAbsSelfMantissa = strAbsSelfMantissa[0] + '.' + frac
-				return ('-' if self.Mantissa < 0 else '') + strAbsSelfMantissa + "e" + str(self.Exponent)
+				strSelfMantissa = strSelfMantissa[0] + '.' + frac
+				return ('-' if self.Sign == -1 else '') + strSelfMantissa + "e" + str(self.Exponent)
 			else:
-				strAbsSelfMantissa = '0.' + '0'*(abs(self.Exponent) - 1) + strAbsSelfMantissa
-				return ('-' if self.Mantissa < 0 else '') + strAbsSelfMantissa
+				strSelfMantissa = '0.' + '0'*(abs(self.Exponent) - 1) + strSelfMantissa
+				return ('-' if self.Sign == -1 else '') + strSelfMantissa
 
 	# return number in the form of
 	# Mantissa = ###.#######, Exponent = ###*3
 	# returns new mantissa as a string with a decimal point
 	# and the exponent as an integer
 	def sci(self):
-		#print ("self is ", repr(self))
+		print ("called sci self is ", repr(self))
 		man = str(self.Mantissa)
 		expo = self.Exponent
 		#print ("man is ", man)
 		#print ("expo is ", expo)
 		strMantissa = str(man).replace('-', '')
-		lenStrMantissa = len(strMantissa)
+		#lenStrMantissa = len(strMantissa)
 		if self.Exponent <= 0:
 			# we increase the exponent value to the nearest negative
 			# upper multiple and compensate by adding more 0s to the
@@ -392,14 +414,17 @@ class mpap ():
 				multfac = (3-abs(self.Exponent)%3)
 				#print ("1. multfac is ", multfac)
 				expo = self.Exponent - multfac
-				if  lenStrMantissa < multfac + 1:
-					strMantissa +=  '0'*(multfac+1-lenStrMantissa)
+				#if  lenStrMantissa < multfac + 1:
+				if  self.lenStrMantissa < multfac + 1:
+					#strMantissa +=  '0'*(multfac+1-lenStrMantissa)
+					strMantissa +=  '0'*(multfac+1-self.lenStrMantissa)
 			else:
 				multfac = 0
-			man = ('-' if (self.sgn() == -1) else '') + strMantissa[:multfac+1] + '.' + strMantissa[multfac+1:]
+			man = ('-' if self.sgn() == -1 else '') + strMantissa[:multfac+1] + '.' + strMantissa[multfac+1:]
 
 		else:
-			diff = self.Exponent - lenStrMantissa + 1 
+			#diff = self.Exponent - lenStrMantissa + 1 
+			diff = self.Exponent - self.lenStrMantissa + 1 
 			if diff < 0:
 				diff += 3 # 3 additional places
 			strMantissa = strMantissa + '0'*diff
@@ -421,6 +446,7 @@ class mpap ():
 
 	# similar to sci(), but returns a single string as ###.#######e###
 	def scistr(self):
+		print ("called scistr ")
 		m, e = self.sci()
 		return m + 'e' + str(e)
 
@@ -450,6 +476,8 @@ class mpap ():
 		#round up for +
 		#round down for -
 		#n is a power of 10
+		#FIXME
+		#for high precisions, use BF
 		if self == 0:
 			return mpap(0)
 		if self > 0:
@@ -466,6 +494,7 @@ class mpap ():
 		base = int(self)
 		exponent = int(other)
 		modulus = int(mod)
+		#print ("apbf.modexp: base = ", base, "\n - exponent = ", exponent, "\n - mod = ", modulus)
 		result = 1
 		base = base % modulus
 		while exponent > 0:
@@ -473,6 +502,7 @@ class mpap ():
 				result = (result * base) % modulus
 			exponent = exponent >> 1
 			base = (base * base) % modulus
+		print ("\n - result = ", result)
 		return mpap(result)
 
 	def modinv2 (self, other):
@@ -535,7 +565,7 @@ class mpap ():
 		if(not isinstance(other, mpap)):
 			return self % mpap(other)
 
-		s = self.bfwrapper(PYBF_OP_FMOD, other)
+		s = self.bfwrapper(PYBF_OP_REM, other)
 		#modulo result has same sign as divisor
 		if other.sgn() == 1:
 			if s < 0:
@@ -559,44 +589,11 @@ class mpap ():
 		else:
 			return -self
 
-	def __eq__(self, other):
-		if(not isinstance(other, mpap)):
-			return self == mpap(other)
-		internal = self - other
-
-		#TODO: simplify this logic
-		if internal.Exponent < -self.Precision:
-			#equal
-			if internal.IM != 0:
-				if internal.IE < -self.Precision:
-					#print ("__eq__internal is ", internal.__repr__(), " and returning True")
-					return True
-				elif internal.IM == 0:
-					return True
-				else:
-					return False
-			else:
-				return True
-		elif internal.Mantissa == 0:
-			#print ("__eq__internal is ", internal.__repr__(), " and returning True")
-			if internal.IM != 0:
-				if internal.IE < -self.Precision:
-					#print ("__eq__internal is ", internal.__repr__(), " and returning True")
-					return True
-				elif internal.IM == 0:
-					return True
-				else:
-					return False
-			else:
-				return True
-		else:
-			#print ("__eq__internal is ", internal.__repr__(), " and returning False")
-			return False
-
 	def __hash__(self):
 		return hash((self.Mantissa, self.Exponent))
 
 	def re (self):
+		print ("func re doing cast to mpap")
 		return mpap(Mantissa = self.Mantissa, Exponent = self.Exponent, InternalAware = True)
 
 	def im (self, imval = None):
@@ -610,6 +607,40 @@ class mpap ():
 			self.IE = imval.Exponent
 			return self
 
+	def __eq__(self, other):
+		if(not isinstance(other, mpap)):
+			return self == mpap(other)
+		internal = self - other
+
+		#TODO: simplify this logic
+		if internal.Exponent < -APBF_PRECISION:
+			#equal
+			if internal.IM != 0:
+				if internal.IE < -APBF_PRECISION:
+					#print ("__eq__internal is ", internal.__repr__(), " and returning True")
+					return True
+				elif internal.IM == 0:
+					return True
+				else:
+					return False
+			else:
+				return True
+		elif internal.Mantissa == 0:
+			#print ("__eq__internal is ", internal.__repr__(), " and returning True")
+			if internal.IM != 0:
+				if internal.IE < -APBF_PRECISION:
+					#print ("__eq__internal is ", internal.__repr__(), " and returning True")
+					return True
+				elif internal.IM == 0:
+					return True
+				else:
+					return False
+			else:
+				return True
+		else:
+			#print ("__eq__internal is ", internal.__repr__(), " and returning False")
+			return False
+
 	def __ne__(self, other):
 		return not self == other
 
@@ -619,7 +650,7 @@ class mpap ():
 
 		if self.IM != 0 or other.IM != 0:
 			internal = abs(self) - abs(other)
-			if internal.Exponent < -self.Precision:
+			if internal.Exponent < -APBF_PRECISION:
 				#equal
 				return False
 			elif internal.Mantissa < 0:
@@ -628,7 +659,7 @@ class mpap ():
 				return False
 
 		internal = self - other
-		if internal.Exponent < -self.Precision:
+		if internal.Exponent < -APBF_PRECISION:
 			#equal
 			return False
 		elif internal.Mantissa < 0:
@@ -737,6 +768,7 @@ class mpap ():
 		if self.IM != 0 or other.IM != 0:
 			return self.csub(other)
 
+		print ("__sub__ calling bfwrapper with SUB")
 		return self.bfwrapper(PYBF_OP_SUB, other)
 
 	def __mul__(self, other):
@@ -750,8 +782,6 @@ class mpap ():
 		if self.IM != 0 or other.IM != 0:
 			return self.cmul(other)
 
-		PREC = max(self.Precision, other.Precision)
-		PREC = max(self.Exponent, PREC)
 		return self.bfwrapper(PYBF_OP_MUL, other)
 
 	def __lshift__ (self, other):
@@ -799,14 +829,7 @@ class mpap ():
 				return self.bfwrapper(PYBF_OP_POW, other)
 
 	def sgn(self):
-		#should we round here?
-		#if abs(x) < mpap(1, -prec) return 0?
-		if self.Mantissa < 0:
-			return -1
-		elif self.Mantissa > 0:
-			return 1
-		else:
-			return 0
+		return self.Sign
 
 	def pow (self, other):
 		if(not isinstance(other, mpap)):
@@ -876,7 +899,7 @@ class mpap ():
 		# Pi using Chudnovsky's algorithm
 		K, M, L, X, S = mpap(6), mpap(1), mpap(13591409), mpap(1), mpap(13591409)
 		#NOTE: only for precision <= 27!!!
-		maxK = min(self.Precision//5, 50)
+		maxK = min(APBF_PRECISION//5, 50)
 		for i in range(1, maxK+1):
 			M = (K**3 - K*16) * M // i**3 
 			L += 545140134
@@ -912,7 +935,7 @@ class mpap ():
 		if  self.IM != 0:
 			return (self.clog()/2).cexp()
 
-		if self.re () < 0:
+		if self.Mantissa < 0: #real part is negative -- sqrt will be imqg
 			r = (-self.re()).sqrt()
 			return mpap(Mantissa=0, Exponent=0, IM=r.Mantissa, IE=r.Exponent, InternalAware = True)
 
@@ -922,7 +945,6 @@ class mpap ():
 		return mpap(len(str(int(self))))
 
 	def cexp (self):
-		global MPAP_DEGREES_MODE
 		isDeg = MPAP_DEGREES_MODE
 		degrees (False) #set to radians
 
@@ -956,7 +978,6 @@ class mpap ():
 		return self.sinh()/self.cosh()
 
 	def tan (self):
-		global MPAPERRORFLAG
 
 		if self.IM != 0:
 			return self.ctan()
@@ -972,8 +993,6 @@ class mpap ():
 			return self.bfwrapper(PYBF_OP_TAN)
 
 	def atan2 (self, other):
-		global MPAPERRORFLAG
-		global MPAP_DEGREES_MODE
 
 		if other == 0:
 			MPAPERRORFLAG = "Tangent is undefined."
@@ -991,7 +1010,6 @@ class mpap ():
 		return self.csin()/self.ccos()
 
 	def ccos (self):
-		global MPAP_DEGREES_MODE
 		isDeg = MPAP_DEGREES_MODE
 		degrees (False) #set to radians
 
@@ -1010,7 +1028,6 @@ class mpap ():
 						InternalAware = True)
 
 	def csin (self):
-		global MPAP_DEGREES_MODE
 		isDeg = MPAP_DEGREES_MODE
 		degrees (False) #set to radians
 
@@ -1029,7 +1046,6 @@ class mpap ():
 						InternalAware = True)
 
 	def sin (self):
-		global MPAP_DEGREES_MODE
 		if self.IM != 0:
 			return self.csin()
 
@@ -1047,7 +1063,6 @@ class mpap ():
 		return x.bfwrapper(PYBF_OP_SIN)
 
 	def cos (self):
-		global MPAP_DEGREES_MODE
 		if self.IM != 0:
 			return self.ccos()
 
@@ -1070,14 +1085,11 @@ class mpap ():
 		return (-i) * (i * self + (mpap(1) - self*self).sqrt()).log()
 
 	def asin (self, acosine=False):
-		print ("NEW ASIN")
-		global MPAP_DEGREES_MODE
-		global MPAPERRORFLAG
 		if abs(self) > 1:
 			MPAPERRORFLAG = "Domain error."
 			return mpap(0)
 
-		if abs (self - 1) < mpap(1, -self.Precision):
+		if abs (self - 1) < mpap(1, -APBF_PRECISION):
 			if acosine == False:
 				v = mpap(0.5).pi()
 			else:
@@ -1105,7 +1117,6 @@ class mpap ():
 			return mpap(0)
 
 	def atan (self):
-		global MPAP_DEGREES_MODE
 		if self.IM != 0:
 			return self.catan()
 
@@ -1158,6 +1169,6 @@ class mpap ():
 			if not n % i2:
 				self.result |= {int(i2), n // i2}
 
-		print (self.result)
-		return mpap(1)
+		#print (self.result)
+		return str(tuple(self.result))
 
