@@ -71,14 +71,14 @@ static PyObject* bf_op (PyObject* self, PyObject *args) {
 	}
 	prec = (limb_t) ceil(BITS_PER_DIGIT * prec10) + 32;
 	//printf ("bf_op: prec10 pointer is %ld\n", (int64_t)(prec10));
-	bf_atof(&bf_A, a, NULL, 10, prec, BF_RNDZ);
-	bf_atof(&bf_B, b, NULL, 10, prec, BF_RNDZ);
+	bf_atof(&bf_A, a, NULL, 10, prec, BF_RNDNA); //was RNDZ
+	bf_atof(&bf_B, b, NULL, 10, prec, BF_RNDNA); //was RNDZ
 	switch (op) {
 		case PYBF_OP_MUL: bf_mul(&bf_X, &bf_A, &bf_B, prec, BF_RNDN); break;
 		case PYBF_OP_ADD: bf_add(&bf_X, &bf_A, &bf_B, prec, BF_RNDN); break;
 		case PYBF_OP_SUB: bf_sub(&bf_X, &bf_A, &bf_B, prec, BF_RNDN); break;
-		case PYBF_OP_RINT: bf_set (&bf_X, &bf_A); bf_rint(&bf_X, BF_RNDN); break;
-		case PYBF_OP_ROUND: bf_set (&bf_X, &bf_A); bf_round(&bf_X, prec, BF_RNDN); break;
+		case PYBF_OP_RINT: bf_set (&bf_X, &bf_A); bf_rint(&bf_X, BF_RNDNA); break;
+		case PYBF_OP_ROUND: bf_set (&bf_X, &bf_A); bf_round(&bf_X, prec, BF_RNDNA); break; //was RNDN 
 		case PYBF_OP_CMP_EQ: status = bf_cmp_eq(&bf_A, &bf_B); break;
 		case PYBF_OP_CMP_LT: status = bf_cmp_lt(&bf_A, &bf_B); break;
 		case PYBF_OP_CMP_LE: status = bf_cmp_le(&bf_A, &bf_B); break;
@@ -121,7 +121,7 @@ static PyObject* bf_op (PyObject* self, PyObject *args) {
 	}	
 	//printf ("bf_op: prec is %d\n", prec);
 	//printf ("bf_op: prec10 is %ld\n", (limb_t)prec10);
-	r_str = bf_ftoa(&digits_len, &bf_X, 10, prec10 + 1, BF_FTOA_FORMAT_FIXED | BF_RNDZ);
+	r_str = bf_ftoa(&digits_len, &bf_X, 10, prec10 + 1, BF_FTOA_FORMAT_FIXED | BF_RNDNA); //was RNDZ
 	//printf ("bf_op: digits_len is %ld\n", (int64_t)digits_len);
 	return Py_BuildValue("s", r_str);
 }
