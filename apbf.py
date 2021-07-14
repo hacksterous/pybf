@@ -68,26 +68,21 @@ def pybfend():
 		
 class mpap ():
 	# Internal Representation of significant digits + sign.
-	Mantissa = None
 
 	# Internal Representation of (Integer) Exponent of 10,
-	# e.g. 6.283012 = [Mantissa = 6283012, Exponent = 6]
+	# e.g. 6.283012 = [Mantissa = 6283012, Exponent = 0]
 	#	  0.097215 = [Mantissa = 97215  , Exponent = -2]
 	# This exponent IS the scientific notation exponent.
 	# Contrary to intuition, Mantissa * 10eExponent is NOT this number it
 	# To reconstruct this number, take the first number and insert "." divider in 0-1 pos
 	# e.g. 9.7215e-2, this is the actual number.
 	# This is implied in later calculations, beware!
-	Exponent = 0
-
-	#True is positive, False is negative
-	Sign = 1
 
 	# __init__
 	# Initialization Function
 	# If a non-integer float type is passed to Mantissa, then this number will be converted
 	# to our internal representation.
-	#
+	
 	# (!!) IF YOU PASS A INTEGER TO mantissa there are two possible behaviors.
 	# Your int may be interpreted
 	# as a literal integer (InternalAware = False) or interpreted as internal representation of significant
@@ -97,8 +92,39 @@ class mpap ():
 
 	# Set InternalAware = True to interpret as internal representation.
 
+	# Number formats to be handled:
+	# 101
+	# 000101
+	# -101
+	# -000000101
+	# 101.0
+	# 101.
+	# .10111
+	# -.2034
+	# 101.11
+	# -101.11
+	# -000101.11	
+	# -000101.11e-3
+	# 101.e-3
+	# 101.2e4
+	# 101.2e-4
+	# 0101.3e-5
+	# 0101.e-5
+	# -101.e-3
+	# -101.2e4
+	# -101.2e-4
+	# -0101.3e-5
+	# -0101.e-5
+
 	def processArguments (self, Mantissa, Exponent, InternalAware = False):
 		global MPAPERRORFLAG
+
+		strMantissa = str(Mantissa).strip()
+		selfExponent = 0
+		lenStrMantissa = 0
+
+		#print (f"processArguments called with Mantissa = {Mantissa} and Exponent = {Exponent}")
+		#print (f"processArguments called with InternalAware = {InternalAware}")
 		try:
 			#catch inf in Mantissa and illegal format in Exponent
 			if type(Mantissa) == float:
@@ -106,105 +132,69 @@ class mpap ():
 					str(float(Mantissa)) == 'nan' or str(float(Exponent)) == 'nan' or \
 					str(float(Exponent)) == 'inf' or str(float(Exponent)) == '-inf':
 					raise OverflowError
-			Exponent = int(Exponent)
+			selfExponent = int(Exponent)
+			#print ("strMantissa = ", strMantissa)
+			#print ("strMantissa.replace('.', '') = ", strMantissa.replace('.', ''))
 		except (ValueError, OverflowError):
-			selfMantissa = 0
-			selfExponent = 0
 			MPAPERRORFLAG = "Illegal mantissa or exponent. \nHint: use strings to hold large numbers!"
 			raise ValueError
 
-		if (type(Mantissa) == float or type(Mantissa) == str):
-			# String rep of mantissa, useful for reuse (strings are immutable), also UnSigned variant
-			strMan = str(Mantissa).lstrip('0')
-			strManUS = strMan.replace('-', '')
+		if type(Mantissa) == float or type(Mantissa) == str or type(Mantissa) == int:
+			if strMantissa.find('-') == 0:
+				negative = '-'
+				strMantissa = strMantissa[1:]
+			else:
+				negative = ''
+
+			#print ("apbf:processArguments - A. strMantissa == ", strMantissa)
+
 			# Extract all significant digits
-			if('e' in strMan): # Oops, too small; have to expand notation
-				# Something like 1e-07... significant digits are before e, then 
-				# extract the second part and add it to exponent accumulator
-				strManParts = strMan.split('e')
+			ePos = strMantissa.find('e')
+			#print ("apbf:processArguments - ePos == ", ePos)
+			if ePos >= 1: 
+				#100.011e3
 				try:
-					selfMantissa = int(strManParts[0].replace('.', ''))
-					Exponent += int(strManParts[1])
+					strMantissa, s = strMantissa[:ePos], strMantissa[ePos+1:]
+					if s != '':
+						selfExponent += int(s)
+					#print ("apbf:processArguments - A1. s == ", s)
 				except (ValueError, OverflowError):
-					selfMantissa = 0
-					selfExponent = 0
 					MPAPERRORFLAG = "Illegal mantissa or exponent."
 					raise ValueError
-			else:
-				try:
-					selfMantissa = int(strMan.replace('.', ''))
-				except (ValueError, OverflowError):
-					selfMantissa = 0
-					selfExponent = 0
-					MPAPERRORFLAG = "Illegal mantissa or exponent."
-					raise ValueError
-
-			# Count exponent for scientific notation
+			elif ePos == 0:
+				#e3 = 1e3 = 1000
+				strMantissa = '1'
 			
-			isFraction = False
-			if strManUS.find('.') ==  0:
-				Exponent -= 1
-				isFraction = True
-				
-			#if (abs(float(Mantissa)) < 1) or isFraction == True:
-			#print ("apbf:processArguments - isFraction == ", isFraction)
-			lenStrManUS = len(strManUS)
-			#print ("apbf:processArguments - strManUS == ", strManUS)
-			if isFraction == True:
-				# numbers that cause single/double-precision float() to overflow
-				# will fail this if-clause
-				if selfMantissa == 0:
-					#number is 0, .0, 0.0, 0. etc
-					selfMantissa = 0
-					selfExponent = 0
-					Exponent = 0
-				else:
-					#number is a fraction
-					#print ("apbf:processArguments - isFraction == ", isFraction)
-					#print ("apbf:processArguments - Exponent == ", Exponent)
-					for i in range(lenStrManUS):
-						if(strManUS[i] == '.'):
-							continue
-						if(strManUS[i] != '0'):
-							break
-						Exponent -= 1
+			dPos = strMantissa.find('.')
+			l1 = len(strMantissa)
+			if dPos == -1: 
+				#there is no decimal point, Mantissa is an integer
+				dPos = l1
 			else:
-				Exponent -= 1 # 1.42857 is 1.425847e0
-				for i in range(lenStrManUS):
-					if(strManUS[i] == 'e' or  strManUS[i] == '.'):
-						break
-					Exponent = Exponent + 1
+				#decimal point was counted in Mantissa string length -- reduce by 1
+				#InternalAware will always be False if a decimal point is found
+				l1 -= 1
+				strMantissa = strMantissa.replace('.', '')
+				strMantissa = strMantissa.lstrip('0')
 
-			selfExponent = Exponent
-		else:
-			#handle integer parameters only
-			if(Mantissa == 0):
-				selfMantissa = 0
-				selfExponent = 0
-			else:
-				selfMantissa = Mantissa
-				if InternalAware == True:
-					selfExponent = Exponent
-				else:
-					selfExponent = Exponent + len(str(selfMantissa).replace('-', '')) - 1
-		#endif
+			if True:
+				#print ("apbf:processArguments - A2. strMantissa == ", strMantissa)
+				nLeadingZeros = l1 - len(strMantissa) #slightly less efficient, as we calculate len twice
+				#print ("apbf:processArguments - nLeadingZeros == ", nLeadingZeros)
+				if InternalAware == False:
+					selfExponent += (dPos - 1) - nLeadingZeros
+				strMantissa = strMantissa.rstrip('0')
+				#print ("apbf:processArguments - A3. strMantissa == ", strMantissa)
 
-		#M=10, E=1 and M=1, E=1 both indicate the same number,
-		#however, the different values of mantissa will be a problem
-		#in numeric comparisons, so reduce to the form M=1, E=1
-		MantissaStr = str(selfMantissa)
-		#if selfMantissa > 1000:
-			#print ("apbf: processArguments - MantissaStr is > 1000 and = ", MantissaStr)
-		i = 0
-		while MantissaStr[-1:] == '0' and \
-				selfMantissa != 0:
-			#remove 0s from end of number
-			MantissaStr = MantissaStr[:-1]
-			i += 1
-		selfMantissa = int (MantissaStr)
-		lenStrMantissa = len(str(selfMantissa).replace('-', ''))
+			if strMantissa == '':
+				strMantissa = '0'
+			lenStrMantissa = len(strMantissa)
+			strMantissa = negative+strMantissa
+			selfMantissa = int(strMantissa)
+			#print ("apbf:processArguments - B. strMantissa == ", strMantissa)
+		#endif type
 
-		#print ("--------------- apbf: processArguments - now returning")
+		#print ("apbf: processArguments - now returning with selfExponent = ", selfExponent)
 		return selfMantissa, selfExponent, lenStrMantissa
 
 	def __init__(self, Mantissa, Exponent = 0,\
@@ -212,15 +202,8 @@ class mpap ():
 		IE = 0, InternalAware = False
 		):
 
-		if type(Mantissa) == int and type(Exponent) == int:
-			#quick integer types cast to mpap
-			self.Mantissa = Mantissa
-			self.Exponent = Exponent
-			self.lenStrMantissa = len(str(self.Mantissa))
-			self.IM = int(IM)
-			self.IE = int(IE)
-			self.Sign = -1 if self.Mantissa < 0 else 1
-			return
+		self.IM = IM
+		self.IE = IE
 
 		if (isinstance(Mantissa, mpap)):
 			self.Mantissa = Mantissa.Mantissa
@@ -237,21 +220,21 @@ class mpap ():
 			return
 
 		if IM == 'inf' or IM == '-inf' or IM == 'nan' or IM == 'err':
-			self.IM = IM
-			self.IE = IE
 			return
 
 		self.Mantissa, self.Exponent, self.lenStrMantissa = self.processArguments (Mantissa, Exponent, InternalAware)
-		self.IM, self.IE, self.lenStrIM = self.processArguments (IM, IE, InternalAware)
+		if IM != 0 and IM != '0':
+			self.IM, self.IE, self.lenStrIM = self.processArguments (IM, IE, InternalAware)
 		self.Sign = -1 if self.Mantissa < 0 else 1
 		return
 	#enddef init
 
 	def bfwrapper (self, op, other=0):
 		global APBF_LAST_OP_DIGITS_LEN
-		print ("bfwrapper: calling bf_op with op = ", op, " self.scistr() = ", self.scistr(), " other = ", other)
+		#print ("bfwrapper: calling bf_op with op = ", op, " self.scistr() = ", self.scistr(), " other = ", other)
 		s = pybf.bf_op(APBF_PRECISION, op, self.scistr(), mpap(other).scistr())
-		s = s.split('e')[0]
+		#print ("pybf.bf_op returned ", s)
+		#s = s.split('e')[0]
 		APBF_LAST_OP_DIGITS_LEN = pybf.bf_len()
 		#print ("BF OP returned ", pybf.bf_len(), " significant digits.")
 		return mpap(s)
@@ -271,16 +254,8 @@ class mpap ():
 			MPAPERRORFLAG = "Division by zero."
 			return mpap(0)
 
-		#subtract divisor's exponent from dividend's exponent after adjusting
-		#for the InternalAware representaiton
-		re = self.Exponent - (len(str(self.Mantissa).replace('-', '')) - 1)
-		re -= other.Exponent - (len(str(other.Mantissa).replace('-', '')) - 1)
-
-		#do division of the mantissa integers with the set precision
-		rm = mpap(self.Mantissa).bfwrapper(PYBF_OP_DIV, mpap(other.Mantissa))
-		#then adjust the exponent calculated earlier
-		rm = mpap(Mantissa = str(rm), Exponent = re, InternalAware = True)
-		return rm
+		r = mpap(self).bfwrapper(PYBF_OP_DIV, mpap(other))
+		return r
 
 	def isComplex(self):
 		return self.IM != 0
@@ -371,7 +346,6 @@ class mpap ():
 		#(those with abs smaller than 1)
 		if self.IM != 0:
 			return self.cstr(sci)
-		strAbsSelfMantissa = str(abs(self.Mantissa))
 		strSelfMantissa = str(self.Mantissa).replace('-', '')
 		#lsm = len(strAbsSelfMantissa)
 		#print ("apbf:__str__: Received ", self.__repr__())
@@ -399,13 +373,12 @@ class mpap ():
 	# returns new mantissa as a string with a decimal point
 	# and the exponent as an integer
 	def sci(self):
-		print ("called sci self is ", repr(self))
+		#print ("called sci self is ", repr(self))
 		man = str(self.Mantissa)
 		expo = self.Exponent
 		#print ("man is ", man)
 		#print ("expo is ", expo)
 		strMantissa = str(man).replace('-', '')
-		#lenStrMantissa = len(strMantissa)
 		if self.Exponent <= 0:
 			# we increase the exponent value to the nearest negative
 			# upper multiple and compensate by adding more 0s to the
@@ -414,16 +387,13 @@ class mpap ():
 				multfac = (3-abs(self.Exponent)%3)
 				#print ("1. multfac is ", multfac)
 				expo = self.Exponent - multfac
-				#if  lenStrMantissa < multfac + 1:
 				if  self.lenStrMantissa < multfac + 1:
-					#strMantissa +=  '0'*(multfac+1-lenStrMantissa)
 					strMantissa +=  '0'*(multfac+1-self.lenStrMantissa)
 			else:
 				multfac = 0
 			man = ('-' if self.sgn() == -1 else '') + strMantissa[:multfac+1] + '.' + strMantissa[multfac+1:]
 
 		else:
-			#diff = self.Exponent - lenStrMantissa + 1 
 			diff = self.Exponent - self.lenStrMantissa + 1 
 			if diff < 0:
 				diff += 3 # 3 additional places
@@ -446,7 +416,7 @@ class mpap ():
 
 	# similar to sci(), but returns a single string as ###.#######e###
 	def scistr(self):
-		print ("called scistr ")
+		#print ("called scistr ")
 		m, e = self.sci()
 		return m + 'e' + str(e)
 
@@ -473,17 +443,8 @@ class mpap ():
 		return y
 
 	def nround (self, n):
-		#round up for +
-		#round down for -
-		#n is a power of 10
-		#FIXME
-		#for high precisions, use BF
-		if self == 0:
-			return mpap(0)
-		if self > 0:
-			return (self*n + 0.5).int()/n
-		else:
-			return (self*n - 0.5).int()/n
+		r = self.bfwrapper(PYBF_OP_ROUND)
+		return r
 
 	def modexp (self, other, mod):
 		#modular exp
@@ -502,7 +463,7 @@ class mpap ():
 				result = (result * base) % modulus
 			exponent = exponent >> 1
 			base = (base * base) % modulus
-		print ("\n - result = ", result)
+		#print ("\n - result = ", result)
 		return mpap(result)
 
 	def modinv2 (self, other):
@@ -593,7 +554,7 @@ class mpap ():
 		return hash((self.Mantissa, self.Exponent))
 
 	def re (self):
-		print ("func re doing cast to mpap")
+		#print ("func re doing cast to mpap")
 		return mpap(Mantissa = self.Mantissa, Exponent = self.Exponent, InternalAware = True)
 
 	def im (self, imval = None):
@@ -768,7 +729,7 @@ class mpap ():
 		if self.IM != 0 or other.IM != 0:
 			return self.csub(other)
 
-		print ("__sub__ calling bfwrapper with SUB")
+		#print ("__sub__ calling bfwrapper with SUB")
 		return self.bfwrapper(PYBF_OP_SUB, other)
 
 	def __mul__(self, other):
