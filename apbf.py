@@ -154,9 +154,9 @@ class mpap ():
 			if ePos >= 1: 
 				#100.011e3
 				try:
-					strMantissa, s = strMantissa[:ePos], strMantissa[ePos+1:]
-					if s != '':
-						selfExponent += int(s)
+					strMantissa, strExponent = strMantissa[:ePos], strMantissa[ePos+1:]
+					if strExponent != '':
+						selfExponent += int(strExponent)
 					#print ("apbf:processArguments - A1. s == ", s)
 				except (ValueError, OverflowError):
 					MPAPERRORFLAG = "Illegal mantissa or exponent."
