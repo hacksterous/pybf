@@ -239,6 +239,9 @@ class mpap ():
 		#print ("BF OP returned ", pybf.bf_len(), " significant digits.")
 		return mpap(s)
 
+	def getMantissaLength(self):
+		return self.lenStrMantissa
+
 	def __truediv__ (self, other):
 		global MPAPERRORFLAG
 		#print ("---------------------------------")
