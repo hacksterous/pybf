@@ -209,9 +209,12 @@ class mpap ():
 			self.Mantissa = Mantissa.Mantissa
 			self.Exponent = Mantissa.Exponent
 			self.lenStrMantissa = len(str(self.Mantissa))
+			self.Sign = -1 if self.Mantissa < 0 else 1
+			if self.Sign == -1:
+				#exclude the minus sign at front
+				self.lenStrMantissa -= 1
 			self.IM = Mantissa.IM
 			self.IE = Mantissa.IE
-			self.Sign = -1 if self.Mantissa < 0 else 1
 			return
 
 		if Mantissa == 'inf' or Mantissa == '-inf' or Mantissa == 'nan' or Mantissa == 'err':
@@ -450,6 +453,16 @@ class mpap ():
 		return r
 
 	def modexp (self, other, mod):
+		if not isinstance(other, mpap) or not isinstance(mod, mpap):
+			return self.modexp(mpap(other), mpap(mod))
+		if mod == 1:
+			return mpap(0)
+		base = int(self)
+		exponent = int(other)
+		modulus = int(mod)
+		return mpap(pow(base,  exponent, modulus))
+
+	def modexpDONTUSE (self, other, mod):
 		#modular exp
 		if not isinstance(other, mpap) or not isinstance(mod, mpap):
 			return self.modexp(mpap(other), mpap(mod))
